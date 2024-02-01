@@ -32,6 +32,7 @@ const SANITIZE_OPTIONS: IOptions = { disallowedTagsMode: 'recursiveEscape', allo
 // Base Websocket name for our rooms
 const SOCKET_GROUP = 'room_';
 const DEFAULT_ROOM = 'General';
+const MAX_HISTORY_CAP = 100;
 
 // Setup a good generator for our room IDs
 // Just copy the single magic line from https://www.npmjs.com/package/nanoid
@@ -114,9 +115,12 @@ const server = Bun.serve({
               
               if (rooms[content.roomId]) {
                 try{
-                  // TODO Only retrieve the last X number of messages for the chat
-                  for (let i = 0; i < rooms[content.roomId].length; i++) {
-                    ws.send(JSON.stringify(rooms[content.roomId][i]));
+                  // Cap our history messages as needed
+                  const count = Math.max(rooms[content.roomId].length, MAX_HISTORY_CAP);
+                  for (let i = 0; i < count; i++) {
+                    if (rooms[content.roomId][i]) {
+                      ws.send(JSON.stringify(rooms[content.roomId][i]));
+                    }
                   }
                 }catch (error) {
                   log("Failed to send history", error);
