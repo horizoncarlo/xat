@@ -6,6 +6,7 @@
 - Room list or search? Likely just want them all private
 - Emojis (Unicode!)
 -- Could also leverage something like https://www.npmjs.com/package/emoji-from-text
+-- Better emoji font that works cross platform?
 - Font color
 - Easily toggle who you are, create a local storage list of names, can swap between them
 -- Necessary for a few kids sharing a single device
@@ -21,14 +22,12 @@
 - Do neat effects, like confetti, snow, message shake, whatever
 - Do fun little minigames in chat? Catch Pokemon, do math, dice rolls, votes, change background, etc.
 -- Need a way to easily expand/create these, almost like plugins
-
-Don't Need: direct messages (just make a 2 person room), login (just let anyone be named anything)
 */
 
 import sanitizeHtml, { type IOptions } from "sanitize-html";
 
 // TODO Allow a more fun list than the default, but still prevent XSS and plain JS and similar
-const SANITIZE_OPTIONS: IOptions = { disallowedTagsMode: 'recursiveEscape', allowedTags: false, allowedAttributes: false };
+const SANITIZE_OPTIONS: IOptions = { disallowedTagsMode: 'recursiveEscape', allowedTags: false, allowedAttributes: false, allowVulnerableTags: true };
 
 // Base Websocket name for our rooms
 const SOCKET_GROUP = 'room_';
@@ -149,6 +148,12 @@ function sendSystemMessage(messageText: string, roomId: string, from: string = '
 }
 
 function sendMessage(messageObj: Message, roomId: string) {
+  // Ignore if we have a junk message
+  if (!messageObj ||
+      !messageObj.message || messageObj.message.trim().length === 0) {
+    return;
+  }
+  
   // Store our data
   rooms[roomId].push(messageObj);
   

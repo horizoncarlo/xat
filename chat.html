@@ -20,6 +20,7 @@
     let sender;
     let socket; // Declared later as a binding for our Websocket
     let senderColorMap = { /* Content is: sender: color */ };
+    let newMessageCount = 0;
     
     window.onload = () => {
       sender = window.prompt('Enter your name:');
@@ -37,6 +38,10 @@
       calcHeaderHeight();
     }
     
+    window.onfocus = () => {
+      updateTitleMessageCount(0, true);
+    }
+    
     // Before we unload, unsubscribe from our websocket if possible
     window.onbeforeunload = function() {
       leaveRoom();
@@ -50,6 +55,9 @@
       
       socket = new WebSocket((isHttps() ? "wss": "ws") + "://" + HOST + "ws" + PARAM_ID + roomId);
       socket.addEventListener("message", event => {
+        if (!document.hasFocus()) {
+          updateTitleMessageCount(1);
+        }
         appendMessage(JSON.parse(event.data));
       });
       socket.addEventListener("error", err => {
@@ -172,6 +180,17 @@
       }
     }
     
+    function updateTitleMessageCount(modBy, isSetInstead) {
+      if (isSetInstead) {
+        newMessageCount = modBy;
+      }
+      else {
+        newMessageCount += modBy;
+      }
+      const prefix = newMessageCount > 0 ? '(' + newMessageCount + ') ' : '';
+      document.title = prefix + 'Xat';
+    }
+    
     function resetChatIn() {
       setValue('chatIn', '');
       focusInput('chatIn');
@@ -183,6 +202,41 @@
         submitMessage();
       }
     }
+    
+    function getSenderColor(sender) {
+      if (sender) {
+        if (!senderColorMap[sender]) {
+          senderColorMap[sender] = generateRandomColor();
+        }
+        return senderColorMap[sender];
+      }
+      return null;
+    }
+    
+    function generateRandomColor() {
+      const letters = '0123456789ABCDEF';
+      let color = '#';
+      
+      for (var i = 0; i < 6; i++) {
+          color += letters[Math.floor(Math.random() * 16)];
+      }
+      
+      return color;
+    }
+    
+    function submitMessage() {
+      const text = getValue('chatIn');
+      if (typeof text === 'string' && text.trim().length > 0) {
+        const toSend = {
+          message: text,
+          sender: sender,
+          roomId: roomId
+        }
+        
+        socket.send(JSON.stringify(toSend));
+      }
+      resetChatIn();
+    }    
     
     function appendMessage(messageObj) {
       if (messageObj && typeof messageObj === 'object') {
@@ -209,39 +263,6 @@
         return new Date(time).toLocaleTimeString() + ' - ';
       }
       return '';
-    }
-    
-    function getSenderColor(sender) {
-      if (sender) {
-        if (!senderColorMap[sender]) {
-          senderColorMap[sender] = generateRandomColor();
-        }
-        return senderColorMap[sender];
-      }
-      return null;
-    }
-    
-    function generateRandomColor() {
-      const letters = '0123456789ABCDEF';
-      let color = '#';
-      
-      for (var i = 0; i < 6; i++) {
-          color += letters[Math.floor(Math.random() * 16)];
-      }
-      
-      return color;
-    }
-    
-    function submitMessage() {
-      const toSend = {
-        message: getValue('chatIn'),
-        sender: sender,
-        roomId: roomId
-      }
-      
-      socket.send(JSON.stringify(toSend));
-      
-      resetChatIn();
     }
   </script>
   
