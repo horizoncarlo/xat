@@ -1,0 +1,23 @@
+{
+  "name": "xat",
+  "version": "0.9",
+  "scripts": {
+    "build": "bun build server.ts --outdir ./build",
+    "start": "bun server.ts",
+    "watch": "bun --watch server.ts",
+    "hot": "bun --hot server.ts"
+  },
+  "private": true,
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/sanitize-html": "^2.9.5"
+  },
+  "dependencies": {
+    "sanitize-html": "^2.11.0"
+  },
+  "module": "server.ts",
+  "type": "module",
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  }
+}

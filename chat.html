@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <title>Xat</title>
+  <base href="/" />
+  <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@1/css/pico.min.css">
+  <!-- Little gimmicky, but straight SVG unicode emoji for the favicon -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🗱</text></svg>">
+  
+  <script type="text/javascript">
+    const HOSTNAME = "${HOSTNAME}";
+    const PORT = "${PORT}";
+    const HOST = HOSTNAME + ":" + PORT + "/";
+    const PARAM_ID = "?id=";
+    const SHOW_TIMESTAMP = false;
+    
+    let roomId = "${ROOM_ID}"; // Anything with ${} notation is replaced automatically by the server before the page is sent to the user
+    let sender;
+    let socket; // Declared later as a binding for our Websocket
+    let senderColorMap = { /* Content is: sender: color */ };
+    
+    window.onload = () => {
+      sender = window.prompt('Enter your name:');
+      if (!sender) {
+        sender = 'Unknown';
+      }
+      
+      calcHeaderHeight();
+      joinRoom(roomId);
+      
+      resetChatIn();
+    }
+        
+    window.onresize = () => {
+      calcHeaderHeight();
+    }
+    
+    // Before we unload, unsubscribe from our websocket if possible
+    window.onbeforeunload = function() {
+      leaveRoom();
+    }
+    
+    function setupWebsocket(oldRoomId) {
+      // Close our previous socket if we're re-initializing
+      if (socket) {
+        leaveRoom(oldRoomId);
+      }
+      
+      socket = new WebSocket((isHttps() ? "wss": "ws") + "://" + HOST + "ws" + PARAM_ID + roomId);
+      socket.addEventListener("message", event => {
+        appendMessage(JSON.parse(event.data));
+      });
+      socket.addEventListener("error", err => {
+        statusMessageError('Initialization error');
+        console.error("Websocket error", err);
+      });
+      socket.addEventListener("open", event => {
+        // Open a Websocket connection to the server, then subscribe to our Session ID
+        console.log("Opened Websocket, subscribing " + roomId);
+        socket.send(JSON.stringify({
+          type: 'join',
+          sender: sender,
+          roomId: roomId
+        }));
+      });
+      // Don't do anything on the "close" event, so no point declaring: socket.addEventListener("close", event => { });
+    }
+    
+    function joinRoom(newRoomId) {
+      let oldRoomId = roomId;
+      roomId = newRoomId;
+      
+      // Open our socket
+      setupWebsocket(oldRoomId);
+      
+      // Mark our session so the user can see at a glance
+      // setValue('sessionNote', "Room: " + sessionId);
+      
+      // Append our session ID to the URL
+      if (roomId) {
+        const url = new URL(window.location.href);
+        url.searchParams.set("id", roomId);
+        history.pushState({}, "", url);
+      }
+    }
+    
+    function leaveRoom(oldRoomId) {
+      let toLeave = oldRoomId ? oldRoomId : roomId;
+      if (socket) {
+        try{
+          console.log("Closed Websocket, unsubscribing " + toLeave);
+          socket.send(JSON.stringify({
+            type: 'leave',
+            sender: sender,
+            roomId: toLeave
+          }));
+          if (socket.readyState !== WebSocket.CLOSED &&
+              socket.readyState !== WebSocket.CLOSING) {
+            socket.close();
+          }
+        }catch (ignored) { }
+      }
+    }
+    
+    function isHttps() {
+      return window.location.protocol === "https:";
+    }
+    
+    function getNumberValue(inputId) {
+      // Same as getting a value, except if we got null, return 0 instead
+      let toReturn = getValue(inputId, true);
+      if (toReturn === null) {
+        return 0;
+      }
+      return toReturn;
+    }
+    
+    function getValue(inputId, tryToParse) {
+      let toReturn = null;
+      
+      const ele = document.getElementById(inputId);
+      if (ele) {
+        toReturn = ele.value;
+        if (!toReturn) {
+          toReturn = ele.innerText;
+        }
+        
+        if (tryToParse && typeof toReturn === 'string') {
+          // Try to parse to a number if possible
+          try {
+            const tryParse = parseInt(toReturn);
+            if (Number.isInteger(tryParse) &&
+                !Number.isNaN(tryParse)) {
+              toReturn = tryParse;
+            }
+          }catch (ignored) { }
+        }
+      }
+      return toReturn;
+    }
+    
+    function setValue(eleId, value) {
+      const ele = document.getElementById(eleId);
+      
+      if (ele) {
+        if (ele.tagName === 'INPUT') {
+          ele.value = value;
+        }
+        else {
+          ele.innerText = value;
+        }
+      }
+    }
+    
+    function calcHeaderHeight() {
+      const header = document.getElementById('header');
+      const content = document.getElementById('chatOut');
+      if (header && content) {
+        content.style.paddingTop = header.getBoundingClientRect().height + 'px';
+      }
+    }
+    
+    function focusInput(id, selectAll) {
+      const ele = document.getElementById(id);
+      if (ele) {
+        ele.focus();
+        if (selectAll) {
+          ele.select();
+        }
+      }
+    }
+    
+    function resetChatIn() {
+      setValue('chatIn', '');
+      focusInput('chatIn');
+      window.scrollTo(0, 0);
+    }
+  
+    function checkKey(event) {
+      if (event.key === 'Enter') {
+        submitMessage();
+      }
+    }
+    
+    function appendMessage(messageObj) {
+      if (messageObj && typeof messageObj === 'object') {
+      const ele = document.getElementById('chatOut');
+        if (ele) {
+          ele.innerHTML = formatIncomingMessage(messageObj) + ele.innerHTML;
+        }
+      }
+    }
+    
+    function formatIncomingMessage(messageObj) {
+      return '<div class="m">' +
+        '<div class="mh" style="color: ' + getSenderColor(messageObj.sender) + '">' +
+        formatTimestamp(messageObj.date) + messageObj.sender + '</div>' +
+        messageObj.message +
+      '</div>';
+    }
+    
+    function formatTimestamp(time) {
+      return SHOW_TIMESTAMP ?
+        (new Date(messageObj.date).toLocaleTimeString() + ' - ')
+        : '';
+    }
+    
+    function getSenderColor(sender) {
+      if (sender) {
+        if (!senderColorMap[sender]) {
+          senderColorMap[sender] = generateRandomColor();
+        }
+        return senderColorMap[sender];
+      }
+      return null;
+    }
+    
+    function generateRandomColor() {
+      const letters = '0123456789ABCDEF';
+      let color = '#';
+      
+      for (var i = 0; i < 6; i++) {
+          color += letters[Math.floor(Math.random() * 16)];
+      }
+      
+      return color;
+    }
+    
+    function submitMessage() {
+      const toSend = {
+        message: getValue('chatIn'),
+        sender: sender,
+        roomId: roomId
+      }
+      
+      socket.send(JSON.stringify(toSend));
+      
+      resetChatIn();
+    }
+  </script>
+  
+  <style>
+    :root {
+      --primary: ${THEME};
+      --spacing: 0;
+    }
+    
+    html, body {
+      margin: 0;
+      padding: 0;
+    }
+    
+    body {
+      overflow-x: auto;
+      overflow-y: scroll;
+    }
+    
+    .m { /* Short name for message */
+      display: block;
+      padding: 5px 0;
+    }
+    
+    .mh { /* Short name for message header */
+      display: inline-block;
+      font-size: small;
+      font-family: 'Courier New', Courier, monospace;
+      padding-right: 10px;
+    }
+    
+    .mh::after {
+      content: ':';
+    }
+    
+    #header, #chatOut {
+      padding: 10px;
+    }
+    
+    #header {
+      position: fixed;
+      top: 0;
+      width: 100%;
+      display: flex;
+    }
+    
+    #sendButton {
+      width: fit-content;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      margin-left: 10px;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="header">
+    <input id="chatIn" onkeyup="checkKey(event)"></input>
+    
+    <!-- TODO Show on mobile on every button click, so not used at the moment: data-tooltip="Send Message" data-placement="left"-->
+    <button id="sendButton" onclick="submitMessage()">🗣 Send</button>
+  </div>
+  
+  <div id="chatOut"></div>
+</body>
+</html>

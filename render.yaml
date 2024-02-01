@@ -1,0 +1,7 @@
+services:
+  - type: web
+    name: bun
+    env: docker
+    repo: https://github.com/horizoncarlo/xat
+    plan: individual
+    autoDeploy: false
