@@ -12,7 +12,7 @@
   <script type="text/javascript">
     const HOSTNAME = "${HOSTNAME}";
     const PORT = "${PORT}";
-    const HOST = HOSTNAME + ":" + PORT + "/";
+    const HOST = HOSTNAME + (isHttps() ? "" : (":" + PORT)) + "/";
     const PARAM_ID = "?id=";
     const SHOW_TIMESTAMP = false;
     
