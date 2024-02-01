@@ -57,7 +57,7 @@
         console.error("Websocket error", err);
       });
       socket.addEventListener("open", event => {
-        // Open a Websocket connection to the server, then subscribe to our Session ID
+        // Open a Websocket connection to the server, then subscribe to our room
         console.log("Opened Websocket, subscribing " + roomId);
         socket.send(JSON.stringify({
           type: 'join',
@@ -75,10 +75,10 @@
       // Open our socket
       setupWebsocket(oldRoomId);
       
-      // Mark our session so the user can see at a glance
-      // setValue('sessionNote', "Room: " + sessionId);
+      // Note our room so the user can see at a glance
+      // setValue('roomNote', "Room: " + roomId);
       
-      // Append our session ID to the URL
+      // Append our room to the URL
       if (roomId) {
         const url = new URL(window.location.href);
         url.searchParams.set("id", roomId);
@@ -195,16 +195,20 @@
     
     function formatIncomingMessage(messageObj) {
       return '<div class="m">' +
-        '<div class="mh" style="color: ' + getSenderColor(messageObj.sender) + '">' +
+        '<div class="mh" style="color: ' + getSenderColor(messageObj.sender) + '" title="' + formatTimestamp(messageObj.date, true) + '">' +
         formatTimestamp(messageObj.date) + messageObj.sender + '</div>' +
         messageObj.message +
       '</div>';
     }
     
-    function formatTimestamp(time) {
-      return SHOW_TIMESTAMP ?
-        (new Date(messageObj.date).toLocaleTimeString() + ' - ')
-        : '';
+    function formatTimestamp(time, titleFormat) {
+      if (titleFormat) {
+        return 'Sent ' + new Date(time).toLocaleString();
+      }
+      else if (SHOW_TIMESTAMP) {
+        return new Date(time).toLocaleTimeString() + ' - ';
+      }
+      return '';
     }
     
     function getSenderColor(sender) {
