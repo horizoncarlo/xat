@@ -10,4 +10,5 @@ RUN bun build server.ts --outdir .
 
 ENV isProduction true
 
-CMD [ "bun", "start" ]
+EXPOSE 3000/tcp
+ENTRYPOINT [ "bun", "run", "server.ts" ]
