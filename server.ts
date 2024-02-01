@@ -118,7 +118,9 @@ const server = Bun.serve({
                   for (let i = 0; i < rooms[content.roomId].length; i++) {
                     ws.send(JSON.stringify(rooms[content.roomId][i]));
                   }
-                }catch (ignored) { }
+                }catch (error) {
+                  log("Failed to send history", error);
+                }
               }
               
               sendSystemMessage(`<b>${content.sender}</b> joined the room`, content.roomId);
@@ -222,7 +224,7 @@ function generateRandomColor(): string {
   return color;
 }
 
-function log(message: string, ...extra: string[]): void {
+function log(message: string, ...extra: any): void {
   console.log(new Date().toLocaleString() + " - " + message, extra && extra.length > 0 ? extra : '');
 }
 
