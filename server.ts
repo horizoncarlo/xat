@@ -116,7 +116,7 @@ const server = Bun.serve({
               if (rooms[content.roomId]) {
                 try{
                   // Cap our history messages as needed
-                  const count = Math.max(rooms[content.roomId].length, MAX_HISTORY_CAP);
+                  const count = Math.min(rooms[content.roomId].length, MAX_HISTORY_CAP);
                   for (let i = 0; i < count; i++) {
                     if (rooms[content.roomId][i]) {
                       ws.send(JSON.stringify(rooms[content.roomId][i]));
